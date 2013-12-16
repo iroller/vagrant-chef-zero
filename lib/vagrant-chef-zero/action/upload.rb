@@ -34,12 +34,12 @@ module VagrantPlugins
 
         def upload_cookbooks(env)
           path = env[:machine].config.chef_zero.cookbooks
-          cookbooks = select_items(path)
+          path = File.expand_path(path)
+          cookbooks = select_cookbooks(path)
           env[:chef_zero].ui.info("Loading cookbooks from #{path}") unless cookbooks.empty?
           cookbooks.each do |cookbook|
-            name = File.basename(cookbook)
-            env[:chef_zero].ui.info("Uploading Cookbook #{name}")
-            @conn.cookbook.upload(cookbook, options: {name: name})
+            env[:chef_zero].ui.info("Uploading Cookbook \"#{cookbook}\" from \"#{path}/#{cookbook}\"")
+            @conn.cookbook.upload("#{path}/#{cookbook}", options: {name: cookbook})
           end
         end
 
@@ -149,6 +149,18 @@ module VagrantPlugins
             path = []
           end
           path
+        end
+
+        def select_cookbooks(path)
+          cookbooks = []
+          if path.is_a?(String) && File.directory?(path)
+            Dir.glob("#{path}/*").each do |dir|
+              cookbooks << File.basename(dir) if File.file?("#{dir}/metadata.rb")
+            end
+          else
+            @env[:chef_zero].ui.warn("Warning: Unable to normalize #{path}, skipping")
+          end
+          cookbooks
         end
 
         def setup_connection
